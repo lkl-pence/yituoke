@@ -22,7 +22,7 @@
         }
 
         .container {
-            max-width: 900px;
+            max-width: 960px;
             width: 100%;
         }
 
@@ -62,6 +62,43 @@
         .header p {
             font-size: 15px;
             opacity: 0.85;
+        }
+
+        /* 平台切换标签 */
+        .platform-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+
+        .platform-tab {
+            padding: 10px 28px;
+            border-radius: 30px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.7);
+            user-select: none;
+        }
+
+        .platform-tab.active {
+            background: #fff;
+            color: #0061ff;
+            border-color: #fff;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+        }
+
+        .platform-tab:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .platform-tab .icon {
+            margin-right: 6px;
         }
 
         /* 版本卡片区域 */
@@ -187,11 +224,6 @@
             font-size: 16px;
         }
 
-        .card .features li.warn::before {
-            content: '!';
-            color: #ff8c00;
-        }
-
         .card .download-btn {
             display: block;
             width: 100%;
@@ -225,6 +257,66 @@
             background: #e0ecff;
         }
 
+        /* iOS 卡片 */
+        .ios-card {
+            grid-column: 1 / -1;
+            max-width: 480px;
+            justify-self: center;
+        }
+
+        .ios-card::before {
+            background: linear-gradient(90deg, #333, #666);
+        }
+
+        .ios-card .ios-icon {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .ios-card .ios-desc {
+            text-align: center;
+            color: #555;
+            font-size: 14px;
+            line-height: 1.8;
+            margin-bottom: 24px;
+        }
+
+        .ios-card .download-btn.ios-btn {
+            background: linear-gradient(135deg, #333, #555);
+            color: #fff;
+            font-size: 17px;
+        }
+
+        .ios-card .download-btn.ios-btn:hover {
+            background: linear-gradient(135deg, #222, #444);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+        }
+
+        .ios-card .store-hint {
+            text-align: center;
+            font-size: 13px;
+            color: #999;
+            margin-top: 12px;
+        }
+
+        /* 安卓区域隐藏/显示控制 */
+        .android-section {
+            display: block;
+        }
+
+        .android-section.hidden {
+            display: none;
+        }
+
+        .ios-section {
+            display: none;
+        }
+
+        .ios-section.active {
+            display: block;
+        }
+
         /* 扫码提示 */
         .scan-tip {
             text-align: center;
@@ -241,11 +333,6 @@
             margin-top: 30px;
             line-height: 1.8;
         }
-
-        .footer a {
-            color: rgba(255, 255, 255, 0.7);
-            text-decoration: none;
-        }
     </style>
 </head>
 <body>
@@ -261,63 +348,100 @@
             <p>选择适合的版本下载安装</p>
         </div>
 
-        <!-- 版本卡片 -->
-        <div class="cards">
-            <!-- v2.0.0 最新版 -->
-            <div class="card latest">
-                <span class="badge latest">最新版本</span>
-                <div class="version">v2.0.0</div>
-                <div class="version-label">功能全面升级</div>
-                <div class="info">
-                    <div class="info-item">
-                        <div class="label">文件大小</div>
-                        <div class="value">31 MB</div>
+        <!-- 平台切换 -->
+        <div class="platform-tabs">
+            <span class="platform-tab active" onclick="switchPlatform('android')">
+                <span class="icon">🤖</span> Android（安卓）
+            </span>
+            <span class="platform-tab" onclick="switchPlatform('ios')">
+                <span class="icon">🍎</span> iOS（苹果）
+            </span>
+        </div>
+
+        <!-- 安卓版本区 -->
+        <div id="android-section" class="android-section">
+            <div class="cards">
+                <!-- v2.0.0 最新版 -->
+                <div class="card latest">
+                    <span class="badge latest">最新版本</span>
+                    <div class="version">v2.0.0</div>
+                    <div class="version-label">功能全面升级 · Android</div>
+                    <div class="info">
+                        <div class="info-item">
+                            <div class="label">文件大小</div>
+                            <div class="value">31 MB</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">更新日期</div>
+                            <div class="value">2026-06</div>
+                        </div>
                     </div>
-                    <div class="info-item">
-                        <div class="label">更新日期</div>
-                        <div class="value">2026-06</div>
-                    </div>
+                    <ul class="features">
+                        <li>全新界面设计，体验更流畅</li>
+                        <li>新增多项业务功能模块</li>
+                        <li>性能优化，响应速度提升</li>
+                        <li>修复已知问题，稳定性增强</li>
+                    </ul>
+                    <a href="https://github.com/lkl-pence/yituoke/releases/download/v1.0.0/2.0.0.apk" download="逸拓客-v2.0.0.apk" class="download-btn primary">
+                        📥 下载 v2.0.0
+                    </a>
                 </div>
-                <ul class="features">
-                    <li>全新界面设计，体验更流畅</li>
-                    <li>新增多项业务功能模块</li>
-                    <li>性能优化，响应速度提升</li>
-                    <li>修复已知问题，稳定性增强</li>
-                </ul>
-                <a href="https://github.com/lkl-pence/yituoke/releases/download/v1.0.0/2.0.0.apk" download="逸拓客-v2.0.0.apk" class="download-btn primary">
-                    下载 v2.0.0
-                </a>
+
+                <!-- v1.1.8 稳定版 -->
+                <div class="card">
+                    <span class="badge stable">稳定版本</span>
+                    <div class="version">v1.1.8</div>
+                    <div class="version-label">经典稳定之选 · Android</div>
+                    <div class="info">
+                        <div class="info-item">
+                            <div class="label">文件大小</div>
+                            <div class="value">11 MB</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">更新日期</div>
+                            <div class="value">2026-05</div>
+                        </div>
+                    </div>
+                    <ul class="features">
+                        <li>运行非常稳定，长期验证</li>
+                        <li>体积小巧，安装快速</li>
+                        <li>兼容性好，适配各类设备</li>
+                        <li>功能完整可用，日常使用无问题</li>
+                    </ul>
+                    <a href="https://github.com/lkl-pence/yituoke/releases/download/v1.0.0/1.1.8.apk" download="逸拓客-v1.1.8.apk" class="download-btn secondary">
+                        📥 下载 v1.1.8
+                    </a>
+                </div>
             </div>
 
-            <!-- v1.1.8 稳定版 -->
-            <div class="card">
-                <span class="badge stable">稳定版本</span>
-                <div class="version">v1.1.8</div>
-                <div class="version-label">经典稳定之选</div>
-                <div class="info">
-                    <div class="info-item">
-                        <div class="label">文件大小</div>
-                        <div class="value">11 MB</div>
-                    </div>
-                    <div class="info-item">
-                        <div class="label">更新日期</div>
-                        <div class="value">2026-05</div>
-                    </div>
-                </div>
-                <ul class="features">
-                    <li>体积小巧，安装快速</li>
-                    <li>运行稳定，兼容性好</li>
-                    <li>适合老旧设备使用</li>
-                    <li class="warn">功能较旧，建议优先使用新版</li>
-                </ul>
-                <a href="https://github.com/lkl-pence/yituoke/releases/download/v1.0.0/1.1.8.apk" download="逸拓客-v1.1.8.apk" class="download-btn secondary">
-                    下载 v1.1.8
-                </a>
+            <div class="scan-tip">
+                📱 安卓用户：点击下载按钮即可获取 APK 文件，安装时请允许「未知来源」权限
             </div>
         </div>
 
-        <div class="scan-tip">
-            手机访问可直接点击下载，安装时请允许"未知来源"安装权限
+        <!-- iOS 版本区 -->
+        <div id="ios-section" class="ios-section">
+            <div class="cards">
+                <div class="card ios-card">
+                    <div class="ios-icon">🍎</div>
+                    <div class="version">iOS 版本</div>
+                    <div class="version-label">Apple App Store 正式版</div>
+                    <div class="ios-desc">
+                        iPhone / iPad 用户请在 App Store 中搜索「逸拓客」下载<br>
+                        或直接点击下方按钮跳转至应用商店
+                    </div>
+                    <a href="https://apps.apple.com/app/id0000000000" target="_blank" class="download-btn ios-btn" onclick="alert('请提供逸拓客在App Store的实际链接地址'); return false;">
+                        🍎 前往 App Store 下载
+                    </a>
+                    <div class="store-hint">
+                        点击后将自动跳转至苹果手机应用商店
+                    </div>
+                </div>
+            </div>
+
+            <div class="scan-tip">
+                📱 苹果用户：点击上方按钮将自动跳转至 App Store 进行下载
+            </div>
         </div>
 
         <!-- 底部 -->
@@ -326,5 +450,25 @@
             <p>如需帮助请联系技术支持</p>
         </div>
     </div>
+
+    <script>
+        function switchPlatform(platform) {
+            const tabs = document.querySelectorAll('.platform-tab');
+            const androidSection = document.getElementById('android-section');
+            const iosSection = document.getElementById('ios-section');
+
+            tabs.forEach(tab => tab.classList.remove('active'));
+
+            if (platform === 'android') {
+                tabs[0].classList.add('active');
+                androidSection.classList.remove('hidden');
+                iosSection.classList.remove('active');
+            } else {
+                tabs[1].classList.add('active');
+                androidSection.classList.add('hidden');
+                iosSection.classList.add('active');
+            }
+        }
+    </script>
 </body>
 </html>
