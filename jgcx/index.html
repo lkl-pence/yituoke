@@ -1,0 +1,1948 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>机构服务商查询</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #f0f4f8;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --primary: #1a56db;
+    --primary-light: #ebf0ff;
+    --text: #1e293b;
+    --text-muted: #64748b;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ── 顶部导航 ── */
+  .topbar {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 1px 8px rgba(0,0,0,0.06);
+  }
+  .topbar-left { display: flex; align-items: center; gap: 12px; }
+  /* Tab 切换 */
+  .tab-switch { display: flex; align-items: center; gap: 4px; margin-left: 18px; padding-left: 18px; border-left: 1px solid var(--border); }
+  .tab-item {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 7px; font-size: 13px; font-weight: 600;
+    color: var(--text-muted); cursor: pointer; transition: all .15s;
+    user-select: none;
+  }
+  .tab-item:hover { color: var(--text); background: var(--bg); }
+  .tab-item.active { color: var(--primary); background: var(--primary-light); }
+  .tab-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); }
+  .tab-item.active .tab-dot { background: var(--primary); }
+  .tab-item .tab-badge {
+    background: var(--warning); color: white; font-size: 10px; padding: 1px 5px; border-radius: 8px; margin-left: 2px;
+  }
+  .logo { width: 32px; height: 32px; background: var(--primary); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .logo svg { width: 18px; height: 18px; fill: white; }
+  .topbar h1 { font-size: 16px; font-weight: 700; color: var(--text); }
+  .topbar-right { display: flex; align-items: center; gap: 10px; }
+  .tag-count { font-size: 12px; color: var(--text-muted); background: var(--bg); padding: 3px 10px; border-radius: 20px; }
+  .btn-topbar {
+    height: 34px; padding: 0 14px; border-radius: 7px; font-size: 13px; font-weight: 600;
+    border: 1.5px dashed var(--primary); background: #f0f7ff; color: var(--primary);
+    cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+    transition: all .15s; white-space: nowrap;
+  }
+  .btn-topbar:hover { background: var(--primary-light); border-style: solid; }
+  .btn-topbar-ghost {
+    height: 34px; padding: 0 12px; border-radius: 7px; font-size: 13px; font-weight: 600;
+    border: 1.5px solid var(--border); background: transparent; color: var(--text-muted);
+    cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+    transition: all .15s; white-space: nowrap;
+  }
+  .btn-topbar-ghost:hover { background: var(--bg); color: var(--text); }
+
+  /* ── 主体布局 ── */
+  .main { max-width: 1300px; margin: 0 auto; padding: 24px 20px; }
+
+  /* ── Tab Panel 切换 ── */
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── 调价记录结果表 ── */
+  .rec-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .rec-table th, .rec-table td {
+    padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border);
+    white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis;
+  }
+  .rec-table th { background: var(--bg); font-weight: 700; color: var(--text-muted); font-size: 12px; position: sticky; top: 0; }
+  .rec-table tbody tr:hover { background: var(--primary-light); }
+
+  /* ── 调价记录卡片 ── */
+  .rec-cards { display: flex; flex-direction: column; gap: 12px; }
+  .rec-card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: white;
+    overflow: hidden;
+    transition: box-shadow .15s, border-color .15s;
+  }
+  .rec-card:hover { border-color: var(--primary); box-shadow: 0 2px 8px rgba(26,86,219,0.08); }
+  .rec-card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  }
+  .rec-card-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+  .rec-card-foot { padding: 8px 16px; background: var(--bg); font-size: 11px; color: var(--text-muted); }
+  .rec-row { display: flex; gap: 12px; font-size: 13px; line-height: 1.6; }
+  .rec-label { flex: 0 0 80px; color: var(--text-muted); font-size: 12px; }
+  .rec-value { flex: 1; color: var(--text); word-break: break-word; }
+  .rec-tag {
+    display: inline-block; padding: 1px 8px; border-radius: 10px;
+    font-size: 11px; background: #f1f5f9; color: var(--text-muted);
+    margin-right: 4px;
+  }
+  .rec-tag-blue { background: var(--primary-light); color: var(--primary); }
+  .rec-hit {
+    display: inline-block; padding: 1px 6px; border-radius: 4px;
+    font-size: 10px; background: var(--success); color: white;
+    margin-left: 4px; vertical-align: middle;
+  }
+  /* ── 重复申请标识 ── */
+  .rec-card.is-dup {
+    border-color: #fca5a5;
+    background: linear-gradient(to bottom, #fff7f7 0%, #ffffff 60%);
+    box-shadow: 0 1px 6px rgba(239, 68, 68, 0.10);
+  }
+  .rec-card.is-dup:hover {
+    border-color: #ef4444;
+    box-shadow: 0 2px 10px rgba(239, 68, 68, 0.18);
+  }
+  .rec-dup-banner {
+    padding: 6px 16px;
+    background: #fef2f2;
+    border-bottom: 1px dashed #fca5a5;
+    font-size: 12px;
+  }
+  .rec-dup-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 10px;
+    background: #b91c1c;
+    color: #fff;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: help;
+  }
+
+  /* ── 搜索区 ── */
+  .search-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
+  }
+  .search-row { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+  .search-field { flex: 1; min-width: 240px; }
+  .search-field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .search-input-wrap { position: relative; }
+  .search-input-wrap input {
+    width: 100%;
+    height: 44px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 0 40px 0 14px;
+    font-size: 14px;
+    color: var(--text);
+    background: var(--bg);
+    transition: border-color .2s, box-shadow .2s;
+    outline: none;
+  }
+  .search-input-wrap input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26,86,219,0.12); background: white; }
+  .search-input-wrap .clear-btn {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer; color: var(--text-muted);
+    width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+    border-radius: 50%; transition: background .15s;
+  }
+  .search-input-wrap .clear-btn:hover { background: var(--border); }
+  .btn {
+    height: 44px;
+    padding: 0 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all .15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-primary:hover { background: #1648c0; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(26,86,219,0.3); }
+  .btn-ghost { background: transparent; color: var(--text); border: 1.5px solid var(--border); }
+  .btn-ghost:hover { background: var(--bg); }
+  .btn-upload { background: #f0f7ff; color: var(--primary); border: 1.5px dashed var(--primary); }
+  .btn-upload:hover { background: var(--primary-light); }
+  .btn-danger-light { background: #fff5f5; color: var(--danger); border: 1.5px solid #fecaca; }
+  .btn-danger-light:hover { background: #fee2e2; }
+
+  /* ── 候选列表 ── */
+  .candidates {
+    display: none;
+    margin-top: 16px;
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+  }
+  .candidates.show { display: block; }
+  .candidates-label { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; font-weight: 600; }
+  .cand-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cand-item {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1.5px solid var(--border);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all .15s;
+    background: white;
+  }
+  .cand-item:hover, .cand-item.active { background: var(--primary); color: white; border-color: var(--primary); }
+  .cand-item:hover .cand-no, .cand-item.active .cand-no { opacity: 1; color: rgba(255,255,255,0.8); }
+  .cand-item .cand-no { font-size: 11px; opacity: .75; margin-left: 4px; }
+  /* 多机构号卡片样式 */
+  .cand-item.multi-org-no {
+    border-radius: 10px;
+    padding: 10px 14px;
+    border: 1.5px solid var(--border);
+    background: white;
+  }
+  .cand-item.multi-org-no:hover, .cand-item.multi-org-no.active {
+    background: var(--primary-light);
+    border-color: var(--primary);
+    color: var(--text);
+  }
+  .cand-item.multi-org-no:hover span[style*="primary"], .cand-item.multi-org-no.active span[style*="primary"] {
+    color: var(--primary) !important;
+  }
+
+  /* ── 结果区 ── */
+  .result-wrap { display: none; }
+  .result-wrap.show { display: block; }
+
+  /* ── 机构概要卡 ── */
+  .org-header {
+    background: linear-gradient(135deg, #1a56db 0%, #3b82f6 100%);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    color: white;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 24px rgba(26,86,219,0.25);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .org-name { font-size: 22px; font-weight: 800; letter-spacing: -0.3px; margin-bottom: 4px; }
+  .org-no { font-size: 13px; opacity: .8; margin-bottom: 14px; }
+  .org-badges { display: flex; flex-wrap: wrap; gap: 8px; }
+  .badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+  .badge-leader { background: rgba(255,215,0,0.25); color: #fde68a; border: 1px solid rgba(253,230,138,0.4); }
+  .badge-agent1 { background: rgba(167,243,208,0.2); color: #6ee7b7; border: 1px solid rgba(110,231,183,0.4); }
+  .badge-parallel { background: rgba(196,181,253,0.25); color: #c4b5fd; border: 1px solid rgba(196,181,253,0.4); }
+  .badge-self { background: rgba(252,211,77,0.2); color: #fcd34d; border: 1px solid rgba(252,211,77,0.4); }
+  .badge-ally { background: rgba(147,197,253,0.2); color: #93c5fd; border: 1px solid rgba(147,197,253,0.4); }
+  .org-meta { text-align: right; }
+  .org-meta-item { font-size: 13px; opacity: .8; margin-bottom: 4px; }
+  .org-meta-item strong { color: white; font-weight: 700; }
+
+  /* ── 全链路网格 ── */
+  .chain-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .chain-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+    border-left: 4px solid var(--border);
+    transition: transform .15s, box-shadow .15s;
+  }
+  .chain-card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+  .chain-card.c-leader { border-left-color: #f59e0b; }
+  .chain-card.c-agent1 { border-left-color: var(--success); }
+  .chain-card.c-parallel { border-left-color: #8b5cf6; }
+  .chain-card.c-self { border-left-color: #f97316; }
+  .chain-card.c-ally { border-left-color: #3b82f6; }
+  .chain-card.c-manager { border-left-color: #ec4899; }
+  .chain-card.c-upper { border-left-color: #64748b; }
+  .chain-card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .chain-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-leader { background: #f59e0b; }
+  .dot-agent1 { background: var(--success); }
+  .dot-parallel { background: #8b5cf6; }
+  .dot-self { background: #f97316; }
+  .dot-ally { background: #3b82f6; }
+  .dot-manager { background: #ec4899; }
+  .dot-contact { background: #8b5cf6; }
+  .badge-mode { background: rgba(139,92,246,0.15); color: #7c3aed; border: 1px solid rgba(139,92,246,0.3); }
+  .badge-manager { background: rgba(236,72,153,0.2); color: #f9a8d4; border: 1px solid rgba(236,72,153,0.4); }
+  .chain-org-meta { display: flex; gap: 6px; align-items: center; margin-top: 2px; }
+  .chain-org-type { font-size: 11px; color: var(--text-muted); }
+  .c-contact { border-left-color: #8b5cf6; }
+  .contact-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .contact-row:last-child { border-bottom: none; }
+  .contact-label { color: var(--text-muted); white-space: nowrap; min-width: 100px; }
+  .contact-value { color: var(--text); font-weight: 500; word-break: break-all; }
+  .dot-upper { background: #64748b; }
+  .chain-empty { color: var(--text-muted); font-size: 13px; }
+  .chain-org-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 8px;
+  }
+  .chain-org-item:last-child { border-bottom: none; }
+  .chain-org-name { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; min-width: 0; }
+  .chain-org-name a { color: var(--primary); cursor: pointer; text-decoration: none; }
+  .chain-org-name a:hover { text-decoration: underline; }
+  .chain-org-no { font-size: 11px; color: var(--text-muted); background: var(--bg); padding: 2px 7px; border-radius: 4px; flex-shrink: 0; }
+  .chain-person-item { padding: 7px 0; border-bottom: 1px solid var(--border); }
+  .chain-person-item:last-child { border-bottom: none; }
+  .chain-person-name { font-size: 14px; font-weight: 700; color: var(--text); }
+  .chain-person-role { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .chain-person-contact { font-size: 12px; color: var(--primary); margin-top: 2px; }
+
+  /* ── 数据管理区 ── */
+  .data-section {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
+  }
+  .data-section-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .data-section-title svg { width: 16px; height: 16px; color: var(--primary); }
+  .upload-area {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 32px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s;
+    background: var(--bg);
+  }
+  .upload-area:hover, .upload-area.drag-over { border-color: var(--primary); background: var(--primary-light); }
+  .upload-icon { font-size: 36px; margin-bottom: 10px; }
+  .upload-hint { font-size: 14px; color: var(--text-muted); margin-bottom: 6px; }
+  .upload-hint strong { color: var(--primary); }
+  .upload-sub { font-size: 12px; color: var(--text-muted); }
+  .file-list { margin-top: 14px; }
+  .file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--bg);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .file-item-left { display: flex; align-items: center; gap: 10px; }
+  .file-icon { font-size: 20px; }
+  .file-name { font-weight: 600; color: var(--text); }
+  .file-meta { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+  .file-status { font-size: 12px; padding: 3px 10px; border-radius: 10px; }
+  .file-status.ok { background: #dcfce7; color: #16a34a; }
+  .file-status.merged { background: #fef3c7; color: #d97706; }
+
+  /* ── 字段映射提示 ── */
+  .field-hint {
+    background: #f0f7ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.8;
+  }
+  .field-hint strong { color: var(--primary); }
+
+  /* ── 数据统计 ── */
+  .stats-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .stat-item { flex: 1; min-width: 120px; background: var(--bg); border-radius: 10px; padding: 14px 16px; text-align: center; }
+  .stat-num { font-size: 28px; font-weight: 800; color: var(--primary); }
+  .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  /* ── 空状态 ── */
+  .empty-state { text-align: center; padding: 48px 24px; }
+  .empty-icon { font-size: 48px; margin-bottom: 14px; opacity: .4; }
+  .empty-title { font-size: 16px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; }
+  .empty-sub { font-size: 13px; color: var(--text-muted); }
+
+  /* ── 加载态 ── */
+  .loading { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 40px; color: var(--text-muted); font-size: 14px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .7s linear infinite; }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: #1e293b; color: white; padding: 12px 20px; border-radius: 10px;
+    font-size: 14px; font-weight: 500; transition: transform .3s; z-index: 9999;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    max-width: 90vw; text-align: left;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  #toast.success { background: #065f46; }
+  #toast.error { background: #7f1d1d; }
+  #toast.diag { background: #fff; color: #334155; padding: 14px 18px; box-shadow: 0 8px 30px rgba(0,0,0,0.15); }
+
+  /* ── 对接记录表 ── */
+  .record-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .record-table th { background: var(--bg); font-weight: 700; padding: 10px 14px; text-align: left; border-bottom: 2px solid var(--border); color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .record-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .record-table tr:last-child td { border-bottom: none; }
+  .record-table tr:hover td { background: var(--bg); }
+
+  /* ── 分隔线 ── */
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+  /* 响应式 */
+  @media (max-width: 640px) {
+    .main { padding: 16px 12px; }
+    .chain-grid { grid-template-columns: 1fr; }
+    .org-header { flex-direction: column; }
+    .org-meta { text-align: left; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 顶部导航 -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo">
+      <svg viewBox="0 0 24 24"><path d="M12 2L2 7v10c0 5.25 3.75 10.35 10 11.5C18.25 27.35 22 22.25 22 17V7L12 2zm0 2.18L20 8.3V17c0 4.2-2.8 8.1-8 9.45C6.8 25.1 4 21.2 4 17V8.3L12 4.18zM11 9v6h2V9h-2zm0 8v2h2v-2h-2z"/></svg>
+    </div>
+    <h1>机构服务商查询</h1>
+    <!-- Tab 切换 -->
+    <div class="tab-switch" id="tabSwitch">
+      <div class="tab-item active" data-tab="svc" onclick="switchTab('svc')">
+        <span class="tab-dot"></span>机构服务商查询
+      </div>
+      <div class="tab-item" data-tab="rec" onclick="switchTab('rec')">
+        <span class="tab-dot"></span>调价记录查询
+      </div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span class="tag-count" id="dataCount" data-scope="svc">暂无数据</span>
+    <span class="tag-count" id="updateTime" data-scope="svc" style="display:none;">更新时间&nbsp;<b id="updateTimeVal"></b></span>
+    <button class="btn-topbar" data-scope="svc" onclick="triggerUpload()" title="上传或更新数据文件">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+      更新数据
+    </button>
+    <button class="btn-topbar-ghost" id="clearTopBtn" data-scope="svc" onclick="clearAllData()" style="display:none" title="清空所有数据">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/></svg>
+      清空
+    </button>
+    <button class="btn-topbar-ghost" data-scope="svc" onclick="showDataDiag()" title="查看已加载数据的前10条" style="font-size:12px;">
+      🔍 诊断
+    </button>
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none" multiple onchange="handleFiles(event)">
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- 面板1：机构服务商查询 -->
+  <div class="tab-panel active" data-panel="svc">
+  <!-- 搜索卡 -->
+  <div class="search-card">
+    <div class="search-row">
+      <div class="search-field" style="flex:2;">
+        <label>机构名称（支持简称）</label>
+        <div class="search-input-wrap">
+          <input type="text" id="nameInput" placeholder="输入全称或简称，如：荣欣" oninput="onSearch()" onkeydown="onKeydown(event)">
+          <button class="clear-btn" onclick="clearInput('nameInput')" title="清除">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="search-field">
+        <label>机构号</label>
+        <div class="search-input-wrap">
+          <input type="text" id="noInput" placeholder="输入机构号" oninput="onSearch()" onkeydown="onKeydown(event)">
+          <button class="clear-btn" onclick="clearInput('noInput')" title="清除">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-end;padding-bottom:0;">
+        <button class="btn btn-primary" onclick="doSearch()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          查询
+        </button>
+        <button class="btn btn-ghost" onclick="resetAll()">重置</button>
+      </div>
+    </div>
+    <!-- 候选列表 -->
+    <div class="candidates" id="candidates">
+      <div class="candidates-label" id="candidatesLabel">找到以下匹配机构，请选择：</div>
+      <div class="cand-list" id="candList"></div>
+    </div>
+  </div>
+
+  <!-- 结果区 -->
+  <div class="result-wrap" id="resultWrap">
+    <div id="resultContent"></div>
+  </div>
+
+  <!-- 空状态 -->
+  <div id="emptyState">
+    <div class="empty-state">
+      <div class="empty-icon">🔍</div>
+      <div class="empty-title" id="emptyTitle">请先上传数据文件，再进行查询</div>
+      <div class="empty-sub" id="emptySub">点击右上角「更新数据」按钮上传 Excel / CSV 文件</div>
+    </div>
+  </div>
+  </div>
+  <!-- /面板1 -->
+
+  <!-- 面板2：调价记录查询 -->
+  <div class="tab-panel" data-panel="rec">
+    <div class="search-card">
+      <div class="search-row">
+        <div class="search-field" style="flex:1;max-width:480px;">
+          <label>机构号</label>
+          <div class="search-input-wrap">
+            <input type="text" id="recOrgNoInput" placeholder="输入机构号（将匹配 分润机构号 / 收益方号）" onkeydown="onRecKeydown(event)">
+            <button class="clear-btn" onclick="clearInput('recOrgNoInput')" title="清除">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-end;padding-bottom:0;">
+          <button class="btn btn-primary" onclick="doRecSearch()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            查询
+          </button>
+          <button class="btn btn-ghost" onclick="resetRec()">重置</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 调价记录上传卡（独立于服务商数据） -->
+    <div class="search-card" id="recUploadCard">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--text);">📋 调价记录</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">
+            <span id="recDataCount">暂无调价记录</span>
+            <span id="recUpdateTime" style="display:none;margin-left:8px;">· 更新于 <b id="recUpdateTimeVal"></b></span>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-topbar" onclick="triggerRecUpload()" title="上传调价记录文件">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+            上传调价记录
+          </button>
+          <button class="btn-topbar-ghost" id="recClearBtn" onclick="clearRecData()" style="display:none;" title="清空调价记录">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/></svg>
+            清空
+          </button>
+        </div>
+      </div>
+      <input type="file" id="recFileInput" accept=".xlsx,.xls,.csv" style="display:none" multiple onchange="handleRecFiles(event)">
+    </div>
+
+    <!-- 调价记录结果区 -->
+    <div class="result-wrap" id="recResultWrap" style="display:none;">
+      <div id="recResultContent"></div>
+    </div>
+
+    <!-- 调价记录空状态 -->
+    <div id="recEmptyState">
+      <div class="empty-state">
+        <div class="empty-icon">💰</div>
+        <div class="empty-title" id="recEmptyTitle">请先上传调价记录，再进行查询</div>
+        <div class="empty-sub">点击上方「上传调价记录」按钮上传 Excel / CSV 文件</div>
+      </div>
+    </div>
+  </div>
+  <!-- /面板2 -->
+
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ════════════════════════════════════════
+// 全局数据存储
+// ════════════════════════════════════════
+let DB = {
+  orgs: [],       // 所有机构
+  contacts: [],   // 招商经理/对接人
+  records: []     // 对接记录
+};
+
+// 调价记录库（独立于服务商数据）
+let REC_DB = {
+  records: [],    // 调价记录
+  fileNames: [],  // 关联文件
+  updateTime: ''  // 更新时间
+};
+
+// 当前激活的 tab：'svc' | 'rec'
+let CURRENT_TAB = 'svc';
+
+
+// ═══ Tab 切换 ═══
+function switchTab(name){
+  if(!['svc','rec'].includes(name)) return;
+  CURRENT_TAB = name;
+  // tab 样式
+  document.querySelectorAll('.tab-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.tab === name);
+  });
+  // panel 切换
+  document.querySelectorAll('.tab-panel').forEach(el => {
+    el.classList.toggle('active', el.dataset.panel === name);
+  });
+  // 顶部右侧按钮组按 tab 切换
+  syncTopbarByTab();
+}
+
+function syncTopbarByTab(){
+  const topbarRight = document.querySelector('.topbar-right');
+  if(!topbarRight) return;
+  // 服务商 tab：显 数据计数/更新时间/更新数据/清空/诊断
+  // 调价记录 tab：仅显 调价记录按钮（不显服务商那套）
+  const svcBtns = topbarRight.querySelectorAll('[data-scope="svc"]');
+  svcBtns.forEach(el => {
+    el.style.display = (CURRENT_TAB === 'svc') ? '' : 'none';
+  });
+}
+
+
+// ═══ 字段映射关键词 ═══
+const FIELD_MAP = {
+  orgId:    ['机构号','机构编号','机构id','机构代码','企业编号','商户号','商户编号','服务商编号','拉卡拉机构号'],
+  orgName:  ['机构名称','公司名称','名称','单位名称','全称','机构全称','企业名称','企业全称','公司全称','商户名称','服务商名称'],
+  orgType:  ['类型','机构类型','联盟关系','性质','机构性质','关系类型','服务商角色'],
+  leader:   ['盟主','上级盟主','所属盟主','盟主机构','盟主名称','盟主编号','归属联盟号','归属联盟名称','归属盟主'],
+  agent1:   ['一级代理','上级代理','一级','上级机构','代理','直属代理','上级','上级机构号','上级机构名称','上级全称'],
+  leaderNo: ['归属联盟编号','归属联盟号'],
+  manager:  ['对接销售','招商经理','对接BD','业务联系人','归属招商经理','归属经理','所属经理'],
+  signBU:   ['签约bu','签约BU','签约事业部','bu','事业部','所属BU','所属bu','签约部门','归属BU','归属bu'],
+  developer:['发展人','拓展人','开发人','业务发展人','拓展经理'],
+  assistant:['招商助理','招商协调','助理','协调人'],
+  loginPhone:   ['登录手机','登录手机号','注册手机','机构手机','手机号','手机'],
+  contactPhone: ['业务联系人手机','联系人手机','联系电话','联系方式','电话','联系人电话'],
+  contactEmail: ['业务联系人邮箱','联系人邮箱','邮箱','email','电子邮箱'],
+  allianceMode: ['联盟模式简称','联盟模式','合作模式','模式简称','联盟产品','产品模式'],
+  allianceRole:['联盟角色','盟主角色'],
+  joinDate:   ['入网时间','入网日期','签约时间','上线时间','激活时间','开户时间','服务商入网时间'],
+  notes:    ['对接记录','备注','记录','备注说明','跟进记录','对接备注'],
+};
+
+// 类型标准化
+const TYPE_NORM = {
+  '盟主':['盟主','联盟主','主盟','联盟机构-盟主'],
+  '一级代理':['一级代理','一级','代理商','一代','联盟机构-一级代理'],
+  '普通盟友':['普通盟友','盟友','联盟','普通','联盟机构-普通盟友','联盟机构-盟友'],
+  '自投机构':['自投','自投机构','直营','自营','联盟机构-自投'],
+  '平行机构':['平行','平行机构','联盟机构-平行'],
+};
+
+function normalizeType(raw){
+  if(!raw) return '其他';
+  const r = String(raw).trim();
+  for(const [std, keys] of Object.entries(TYPE_NORM)){
+    if(keys.some(k => r.includes(k))) return std;
+  }
+  return r || '其他';
+}
+
+
+// ═══ 找列（精确优先 + 排除词 + 内容验证） ═══
+const EXCLUDE_PATTERNS = ['联盟编号','联盟号','联盟id']; // 这些列名不会匹配到 orgId
+// 机构号列名关键词，但也可能包含被排除的词的模糊列
+const ORGID_AMBIGUOUS = ['编号']; // 仅包含这些词的列名视为模糊列，需额外验证
+
+function findCol(headers, keys, excludes){
+  // 第一轮：精确匹配列名
+  for(const k of keys){
+    const idx = headers.findIndex(h => h && h.toLowerCase() === k.toLowerCase());
+    if(idx >= 0) return idx;
+  }
+  // 第二轮：includes 匹配，但要排除
+  for(const k of keys){
+    const idx = headers.findIndex(h => {
+      if(!h) return false;
+      const hl = h.toLowerCase();
+      if(hl.includes(k.toLowerCase())){
+        // 检查排除：如果列名包含排除词则跳过
+        if(excludes && excludes.some(ex => hl.includes(ex.toLowerCase()))) return false;
+        return true;
+      }
+      return false;
+    });
+    if(idx >= 0) return idx;
+  }
+  return -1;
+}
+
+// ═══ 为 orgId 找到最佳列（多候选内容验证） ═══
+function findOrgIdCol(headers, rows, fieldKeys, excludes){
+  // 收集所有候选列（精确匹配 + includes匹配）
+  const candidates = new Set();
+  // 精确匹配
+  for(const k of fieldKeys){
+    const idx = headers.findIndex(h => h && h.toLowerCase() === k.toLowerCase());
+    if(idx >= 0) candidates.add(idx);
+  }
+  // includes 匹配
+  for(const k of fieldKeys){
+    headers.forEach((h, idx) => {
+      if(!h || candidates.has(idx)) return;
+      const hl = h.toLowerCase();
+      if(hl.includes(k.toLowerCase())){
+        if(excludes && excludes.some(ex => hl.includes(ex.toLowerCase()))) return;
+        candidates.add(idx);
+      }
+    });
+  }
+  if(candidates.size === 0) return -1;
+  if(candidates.size === 1) return [...candidates][0];
+
+  // 多个候选列：取前几行数据判断
+  const sampleRows = rows.slice(1, Math.min(rows.length, 10));
+  let bestIdx = -1, bestScore = -1;
+  for(const ci of candidates){
+    let score8_9 = 0, score3 = 0, scoreNum = 0;
+    for(const r of sampleRows){
+      const v = String(r[ci]||'').trim();
+      if(!v) continue;
+      if(/^[89]\d{5,}$/.test(v)) score8_9++;
+      else if(/^3\d{5,}$/.test(v)) score3++;
+      else if(/^\d{3,}$/.test(v)) scoreNum++;
+    }
+    // 优先选8/9开头数据最多的列
+    let score = score8_9 * 100 - score3 * 50 + scoreNum;
+    const hName = (headers[ci]||'').toLowerCase();
+    // 如果列名明确包含"机构"等词，加分
+    if(/机构|商户|服务商/.test(hName)) score += 10;
+    // 如果列名仅包含"编号"（模糊列），减分
+    if(ORGID_AMBIGUOUS.some(a => hName === a)) score -= 5;
+    if(score > bestScore){ bestScore = score; bestIdx = ci; }
+  }
+  return bestIdx >= 0 ? bestIdx : [...candidates][0];
+}
+
+// ════════════════════════════════════════
+// 解析文件
+// ════════════════════════════════════════
+function parseSheet(wb, diagCallback){
+  const results = [];
+  const diagList = [];
+  wb.SheetNames.forEach(name => {
+    const ws = wb.Sheets[name];
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+    if(rows.length < 2) return;
+    const headers = rows[0].map(h => String(h||'').trim());
+    // 机构号使用智能多候选验证
+    const orgIdCol = findOrgIdCol(headers, rows, FIELD_MAP.orgId, EXCLUDE_PATTERNS);
+    const cols = {
+      orgId:    orgIdCol,
+      orgName:  findCol(headers, FIELD_MAP.orgName),
+      orgType:  findCol(headers, FIELD_MAP.orgType),
+      leader:   findCol(headers, FIELD_MAP.leader),
+      leaderNo: findCol(headers, FIELD_MAP.leaderNo),
+      agent1:   findCol(headers, FIELD_MAP.agent1),
+      manager:     findCol(headers, FIELD_MAP.manager),
+      signBU:      findCol(headers, FIELD_MAP.signBU),
+      developer:   findCol(headers, FIELD_MAP.developer),
+      assistant:   findCol(headers, FIELD_MAP.assistant),
+      loginPhone:  findCol(headers, FIELD_MAP.loginPhone),
+      contactPhone:findCol(headers, FIELD_MAP.contactPhone),
+      contactEmail:findCol(headers, FIELD_MAP.contactEmail),
+      allianceMode:findCol(headers, FIELD_MAP.allianceMode),
+      allianceRole:findCol(headers, FIELD_MAP.allianceRole),
+      joinDate:     findCol(headers, FIELD_MAP.joinDate),
+      notes:       findCol(headers, FIELD_MAP.notes),
+    };
+    // 智能：如果核心字段都没匹配到，按内容猜测
+    if(cols.orgId < 0 || cols.orgName < 0){
+      for(let ci = 0; ci < Math.min(headers.length, 30); ci++){
+        if(cols.orgId >= 0 && cols.orgName >= 0) break;
+        const sample = rows.length > 1 ? String(rows[1][ci]||'') : '';
+        if(cols.orgId < 0 && /号|编号|id|code/i.test(headers[ci])){
+          cols.orgId = ci;
+        }
+        if(cols.orgName < 0 && /名|称|企业|公司|商户/i.test(headers[ci])){
+          cols.orgName = ci;
+        }
+      }
+    }
+    // 还没找到？按第一行数据内容猜
+    if(cols.orgId < 0 || cols.orgName < 0){
+      for(let ci = 0; ci < Math.min(headers.length, 30); ci++){
+        if(cols.orgId >= 0 && cols.orgName >= 0) break;
+        const sample = rows.length > 1 ? String(rows[1][ci]||'') : '';
+        if(cols.orgId < 0 && /^\d{3,}$/.test(sample)){
+          cols.orgId = ci;
+        }
+        if(cols.orgName < 0 && /[\u4e00-\u9fff]{2,}/.test(sample) && ci !== cols.orgId){
+          cols.orgName = ci;
+        }
+      }
+    }
+    // 诊断
+    const diag = { sheet: name, totalRows: rows.length-1, cols: {} };
+    for(const [k,v] of Object.entries(cols)){
+      diag.cols[k] = v >= 0 ? `${headers[v]} (列${v+1})` : '❌ 未匹配';
+    }
+    // joinDate特殊诊断：显示匹配列的前3条数据样本
+    if(cols.joinDate >= 0){
+      const samples = [];
+      for(let i=1; i<Math.min(rows.length, 6); i++){
+        const v = String(rows[i][cols.joinDate]||'').trim();
+        if(v) samples.push(v);
+        if(samples.length >= 3) break;
+      }
+      diag.cols._joinDateSample = samples.length > 0 ? `样本：${samples.join(' | ')}` : '⚠️ 该列数据为空！';
+    }
+    // 机构号特殊诊断：显示候选列和数据分布
+    if(orgIdCol >= 0){
+      let d8=0, d9=0, d3=0, dOther=0;
+      for(let i=1; i<Math.min(rows.length, 50); i++){
+        const v = String(rows[i][orgIdCol]||'').trim();
+        if(!v) continue;
+        if(v.startsWith('8')) d8++;
+        else if(v.startsWith('9')) d9++;
+        else if(v.startsWith('3')) d3++;
+        else dOther++;
+      }
+      diag.cols._orgIdDetail = `选中列：「${headers[orgIdCol]}」(列${orgIdCol+1}) — 8开头:${d8} 9开头:${d9} 3开头:${d3} 其他:${dOther}`;
+    }
+    diagList.push(diag);
+    for(let i=1;i<rows.length;i++){
+      const r = rows[i];
+      const orgName = cols.orgName>=0 ? String(r[cols.orgName]||'').trim() : '';
+      const orgId   = cols.orgId>=0   ? String(r[cols.orgId]||'').trim()   : '';
+      if(!orgName && !orgId) continue;
+      results.push({
+        orgId:         orgId,
+        orgName:       orgName,
+        orgType:       normalizeType(cols.orgType>=0 ? r[cols.orgType] : ''),
+        leader:        cols.leader>=0        ? String(r[cols.leader]||'').trim()        : '',
+        leaderNo:      cols.leaderNo>=0      ? String(r[cols.leaderNo]||'').trim()      : '',
+        agent1:        cols.agent1>=0        ? String(r[cols.agent1]||'').trim()        : '',
+        manager:       cols.manager>=0       ? String(r[cols.manager]||'').trim()       : '',
+        signBU:        cols.signBU>=0        ? String(r[cols.signBU]||'').trim()        : '',
+        developer:     cols.developer>=0     ? String(r[cols.developer]||'').trim()     : '',
+        assistant:     cols.assistant>=0     ? String(r[cols.assistant]||'').trim()     : '',
+        loginPhone:    cols.loginPhone>=0    ? String(r[cols.loginPhone]||'').trim()    : '',
+        contactPhone:  cols.contactPhone>=0  ? String(r[cols.contactPhone]||'').trim()  : '',
+        contactEmail:  cols.contactEmail>=0  ? String(r[cols.contactEmail]||'').trim()  : '',
+        allianceMode:  cols.allianceMode>=0  ? String(r[cols.allianceMode]||'').trim()  : '',
+        allianceRole:  cols.allianceRole>=0  ? String(r[cols.allianceRole]||'').trim()  : '',
+        joinDate:      cols.joinDate>=0      ? String(r[cols.joinDate]||'').trim()      : '',
+        notes:         cols.notes>=0         ? String(r[cols.notes]||'').trim()         : '',
+        _sheet:        name
+      });
+    }
+  });
+  if(diagCallback) diagCallback(diagList);
+  return results;
+}
+
+// ═══ 去重合并：以机构号为第一优先键（同机构号才合并），无机构号则以全名为键 ═══
+// ⚠️ 注意：同一企业不同机构号视为独立记录，不合并
+function mergeOrgs(existing, incoming){
+  const map = new Map();
+  // 先放已有
+  for(const o of existing){
+    // 有机构号用机构号，无机构号用名称
+    const key = o.orgId ? ('id:'+o.orgId) : ('name:'+o.orgName);
+    if(key) map.set(key, {...o});
+  }
+  let newCount = 0, updateCount = 0;
+  for(const o of incoming){
+    const key = o.orgId ? ('id:'+o.orgId) : ('name:'+o.orgName);
+    if(!key || key === 'id:' || key === 'name:') continue;
+    if(map.has(key)){
+      // 同机构号/同名称：用新数据覆盖空字段
+      const ex = map.get(key);
+      let changed = false;
+      for(const f of ['orgName','orgType','leader','leaderNo','agent1','manager','signBU','developer','assistant','loginPhone','contactPhone','contactEmail','allianceMode','allianceRole','joinDate','notes']){
+        if(!ex[f] && o[f]){ ex[f] = o[f]; changed = true; }
+        // 更新非空字段（新数据覆盖旧）
+        if(o[f] && o[f] !== ex[f]){ ex[f] = o[f]; changed = true; }
+      }
+      if(changed) updateCount++;
+    } else {
+      map.set(key, {...o});
+      newCount++;
+    }
+  }
+  return { orgs: Array.from(map.values()), newCount, updateCount };
+}
+
+// ════════════════════════════════════════
+// 文件处理
+// ════════════════════════════════════════
+let fileRecords = [];
+
+async function handleFiles(event){
+  const files = Array.from(event.target.files);
+  event.target.value = '';
+  await processFiles(files);
+}
+
+async function processFiles(files){
+  for(const file of files){
+    showToast('正在解析：' + file.name + ' ...', '');
+    try {
+      const buf = await file.arrayBuffer();
+      let wb;
+      if(file.name.endsWith('.csv')){
+        const text = new TextDecoder('gbk').decode(buf);
+        wb = XLSX.read(text, {type:'string'});
+      } else {
+        wb = XLSX.read(buf, {type:'array'});
+      }
+      const incoming = parseSheet(wb, (diagList) => {
+        // 显示字段匹配诊断
+        let diagHtml = `<div style="margin-top:8px;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;color:#64748b;">`;
+        diagHtml += `<div style="font-weight:600;color:#334155;margin-bottom:6px;">📋 字段匹配诊断（${file.name}）</div>`;
+        diagList.forEach(d => {
+          diagHtml += `<div style="margin-bottom:6px;"><b style="color:#475569;">表「${d.sheet}」· ${d.totalRows} 行数据</b><br>`;
+          diagHtml += `<span style="color:#16a34a;">✅ 机构名称: ${d.cols.orgName}</span>　`;
+          const orgIdInfo = d.cols._orgIdDetail || d.cols.orgId;
+          const orgIdColor = orgIdInfo.includes('3开头') ? '#ef4444' : '#16a34a';
+          diagHtml += `<span style="color:${orgIdColor};">✅ 机构号: ${orgIdInfo}</span><br>`;
+          diagHtml += `<span style="color:#64748b;">类型: ${d.cols.orgType}</span>　`;
+          diagHtml += `<span style="color:#64748b;">盟主: ${d.cols.leader}</span>　`;
+          diagHtml += `<span style="color:#64748b;">代理: ${d.cols.agent1}</span>　`;
+          diagHtml += `<span style="color:#64748b;">经理: ${d.cols.manager}</span>　`;
+          diagHtml += `<span style="color:#64748b;">登录手机: ${d.cols.loginPhone||'❌'}</span>　`;
+          diagHtml += `<span style="color:#64748b;">联系人手机: ${d.cols.contactPhone||'❌'}</span>　`;
+          diagHtml += `<span style="color:#64748b;">联系人邮箱: ${d.cols.contactEmail||'❌'}</span>　`;
+          diagHtml += `<span style="color:#64748b;">联盟模式: ${d.cols.allianceMode||'❌'}</span>　`;
+          diagHtml += `<span style="color:#64748b;">盟主角色: ${d.cols.allianceRole||'❌'}</span>　`;
+          diagHtml += `<span style="color:#64748b;">入网时间: ${d.cols.joinDate||'❌'}</span>`;
+          if(d.cols._joinDateSample) diagHtml += `<br><span style="color:#f59e0b;font-size:11px;">　${d.cols._joinDateSample}</span>`;
+          diagHtml += `</div>`;
+        });
+        diagHtml += `</div>`;
+        showToast(diagHtml, 'diag');
+      });
+      // 检查有效数据
+      const validCount = incoming.filter(o => o.orgName || o.orgId).length;
+      const emptyCount = incoming.filter(o => !o.orgName && !o.orgId).length;
+      const { orgs, newCount, updateCount } = mergeOrgs(DB.orgs, incoming);
+      DB.orgs = orgs;
+      fileRecords.push({ name: file.name, total: incoming.length, newCount, updateCount, time: new Date().toLocaleString() });
+      updateUI();
+      saveUpdateTime(); // 记录更新时间
+      if(incoming.length > 0 && validCount === 0){
+        showToast(`⚠️ ${file.name} 解析了 ${incoming.length} 行，但有效数据为 0！请检查字段匹配诊断。`, 'error');
+      } else {
+        showToast(`✅ ${file.name}：有效 ${validCount} 条，新增 ${newCount}，更新 ${updateCount}`, 'success');
+      }
+    } catch(e){
+      showToast('❌ 解析失败：' + e.message, 'error');
+    }
+  }
+  saveToLocalStorage();
+}
+
+// 记录/更新数据更新时间（MMDD格式）
+function saveUpdateTime(){
+  const now = new Date();
+  const mm = String(now.getMonth()+1).padStart(2,'0');
+  const dd = String(now.getDate()).padStart(2,'0');
+  const mmdd = mm + dd;
+  try { localStorage.setItem('orgDB_updateTime', mmdd); } catch(e){}
+  const el = document.getElementById('updateTime');
+  const val = document.getElementById('updateTimeVal');
+  if(el) el.style.display = '';
+  if(val) val.textContent = mmdd;
+}
+
+// 加载更新时间
+function loadUpdateTime(){
+  try {
+    const mmdd = localStorage.getItem('orgDB_updateTime');
+    if(mmdd){
+      const el = document.getElementById('updateTime');
+      const val = document.getElementById('updateTimeVal');
+      if(el) el.style.display = '';
+      if(val) val.textContent = mmdd;
+    }
+  } catch(e){}
+}
+
+function onDragOver(e){ e.preventDefault(); document.getElementById('uploadArea').classList.add('drag-over'); }
+function onDragLeave(e){ document.getElementById('uploadArea').classList.remove('drag-over'); }
+function onDrop(e){
+  e.preventDefault();
+  document.getElementById('uploadArea').classList.remove('drag-over');
+  const files = Array.from(e.dataTransfer.files).filter(f => f.name.match(/\.(xlsx|xls|csv)$/i));
+  if(files.length) processFiles(files);
+}
+function triggerUpload(){ document.getElementById('fileInput').click(); }
+
+// ════════════════════════════════════════
+// 更新界面
+// ════════════════════════════════════════
+function updateUI(){
+  const orgs = DB.orgs;
+  // 顶部计数
+  document.getElementById('dataCount').textContent = orgs.length > 0 ? `已加载 ${orgs.length} 个机构` : '暂无数据';
+  // 清空按钮：始终显示（方便随时清空）
+  const clearTop = document.getElementById('clearTopBtn');
+  if(clearTop) clearTop.style.display = '';
+  // 空状态文案
+  if(orgs.length > 0){
+    const t = document.getElementById('emptyTitle');
+    const s = document.getElementById('emptySub');
+    if(t) t.textContent = '输入机构名称或机构号进行查询';
+    if(s) s.textContent = '支持模糊搜索，如输入"荣欣"可匹配含"荣欣"的所有机构';
+  }
+}
+
+// ════════════════════════════════════════
+// 搜索逻辑
+// ════════════════════════════════════════
+let searchTimeout = null;
+
+function onSearch(){
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(()=> {
+    const name = document.getElementById('nameInput').value.trim();
+    const no   = document.getElementById('noInput').value.trim();
+    if(!name && !no){ hideCandidates(); return; }
+    if(DB.orgs.length === 0){ hideCandidates(); return; }
+    const results = searchOrgs(name, no);
+    if(results.length === 1){
+      showResult(results[0]);
+      hideCandidates();
+    } else if(results.length > 1){
+      showCandidates(results);
+    } else {
+      hideCandidates();
+    }
+  }, 200);
+}
+
+function onKeydown(e){ if(e.key==='Enter') doSearch(); }
+
+function searchOrgs(name, no){
+  return DB.orgs.filter(o => {
+    const matchName = name ? (o.orgName||'').includes(name) : true;
+    const matchNo   = no   ? (o.orgId||'').includes(no)     : true;
+    return (name && !no) ? matchName : (!name && no) ? matchNo : matchName && matchNo;
+  });
+}
+
+function doSearch(){
+  const name = document.getElementById('nameInput').value.trim();
+  const no   = document.getElementById('noInput').value.trim();
+  if(!name && !no){ showToast('请输入查询关键词', ''); return; }
+  if(DB.orgs.length === 0){
+    showToast('请先点击右上角「更新数据」上传文件', '');
+    return;
+  }
+  const results = searchOrgs(name, no);
+  if(results.length === 0){
+    showToast('未找到匹配机构', '');
+    hideCandidates();
+    hideResult();
+  } else if(results.length === 1){
+    showResult(results[0]);
+    hideCandidates();
+  } else {
+    showCandidates(results);
+    showToast(`找到 ${results.length} 个匹配机构，请选择`, '');
+  }
+}
+
+function showCandidates(results){
+  const cand = document.getElementById('candidates');
+  const list = document.getElementById('candList');
+  const label = document.getElementById('candidatesLabel');
+
+  // 按企业名称分组
+  const grouped = new Map(); // orgName -> [{org, globalIdx}]
+  results.forEach((o, i) => {
+    const name = o.orgName || '（无名称）';
+    if(!grouped.has(name)) grouped.set(name, []);
+    grouped.get(name).push({ org: o, idx: i });
+  });
+
+  // 存搜索结果供选择
+  window._lastCandResults = results;
+
+  // 动态标题
+  const multiNoCompanies = [...grouped.values()].filter(v => v.length > 1).length;
+  if(multiNoCompanies > 0){
+    label.innerHTML = `找到 <b>${results.length}</b> 条记录，其中有企业存在多个机构号，请点击机构号查看关系：`;
+  } else {
+    label.innerHTML = `找到以下匹配机构（<b>${results.length}</b> 个），请选择：`;
+  }
+
+  let html = '';
+  if(grouped.size === 1 && results.length > 1){
+    // 同一企业多个机构号：突出显示"同企业多机构号"
+    const [name, items] = [...grouped.entries()][0];
+    html += `<div style="flex-basis:100%;width:100%;padding:10px 14px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;font-size:12px;color:#92400e;margin-bottom:10px;">
+      <span style="font-weight:700;">⚡ 该企业（${escH(name)}）有 ${items.length} 个机构号</span>，点击机构号查看对应关系
+    </div>`;
+    items.forEach(({org, idx}) => {
+      html += `<div class="cand-item multi-org-no" onclick="selectOrg(${idx}, this)" data-idx="${idx}" style="display:flex;flex-direction:column;align-items:flex-start;min-width:140px;">
+        <span style="font-weight:700;font-size:14px;color:var(--primary);">${escH(org.orgId)||'无机构号'}</span>
+        ${org.orgType ? `<span style="font-size:11px;color:var(--text-muted);margin-top:2px;">${escH(org.orgType)}</span>` : ''}
+        ${org.manager ? `<span style="font-size:11px;color:var(--text-muted);">对接：${escH(org.manager)}</span>` : ''}
+        ${org.joinDate ? `<span style="font-size:11px;color:var(--text-muted);">入网：${escH(formatJoinDate(org.joinDate))}</span>` : ''}
+      </div>`;
+    });
+  } else {
+    // 多企业：每个企业一行，有多机构号时在其后展示所有机构号
+    grouped.forEach((items, name) => {
+      if(items.length === 1){
+        const {org, idx} = items[0];
+        html += `<div class="cand-item" onclick="selectOrg(${idx}, this)" data-idx="${idx}">
+          ${escH(name)}
+          <span class="cand-no">${escH(org.orgId)||''}</span>
+        </div>`;
+      } else {
+        // 同一企业多个机构号，以卡片组展示
+        html += `<div style="flex-basis:100%;width:100%;margin-top:4px;padding:10px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;">
+          <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;">${escH(name)} <span style="color:#f59e0b;font-weight:700;font-size:12px;">· ${items.length}个机构号，点击查看关系</span></div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">`;
+        items.forEach(({org, idx}) => {
+          html += `<div class="cand-item multi-org-no" onclick="selectOrg(${idx}, this)" data-idx="${idx}" style="display:flex;flex-direction:column;align-items:flex-start;min-width:130px;">
+            <span style="font-weight:700;color:var(--primary);">${escH(org.orgId)||'无机构号'}</span>
+            ${org.orgType ? `<span style="font-size:11px;color:var(--text-muted);">${escH(org.orgType)}</span>` : ''}
+            ${org.manager ? `<span style="font-size:11px;color:var(--text-muted);">对接：${escH(org.manager)}</span>` : ''}
+          </div>`;
+        });
+        html += `</div></div>`;
+      }
+    });
+  }
+
+  list.innerHTML = html;
+  cand.classList.add('show');
+  hideResult();
+}
+
+function selectOrg(i, el){
+  document.querySelectorAll('.cand-item').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active');
+  showResult(window._lastCandResults[i]);
+}
+
+function hideCandidates(){ document.getElementById('candidates').classList.remove('show'); }
+function hideResult(){ document.getElementById('resultWrap').classList.remove('show'); }
+
+// ════════════════════════════════════════
+// 渲染全链路结果
+// ════════════════════════════════════════
+function showResult(org){
+  document.getElementById('emptyState').style.display = 'none';
+  const wrap = document.getElementById('resultWrap');
+  wrap.classList.add('show');
+
+  // 找关联机构
+  const chain = buildChain(org);
+  const html = `
+    <div class="org-header">
+      <div>
+        <div class="org-name">${escH(org.orgName) || '未知机构'}</div>
+        <div class="org-no">机构号：${escH(org.orgId) || '—'}</div>
+        <div class="org-badges">
+          ${org.manager?`<span class="badge badge-manager">对接销售：${escH(org.manager)}</span>`:''}
+          ${org.developer?`<span class="badge badge-manager">发展人：${escH(org.developer)}</span>`:''}
+        </div>
+      </div>
+      <div class="org-meta">
+        ${org.joinDate?`<div class="org-meta-item">入网时间：<strong>${escH(formatJoinDate(org.joinDate))}</strong></div>`:''}
+      </div>
+    </div>
+
+    <div class="chain-grid">
+      ${renderUpperChain(chain)}
+      ${chain.role ? renderChainCard('c-agent1','dot-agent1','盟主角色', chain.role) : ''}
+      ${chain.mode ? renderChainCard('c-self','dot-self','联盟模式', chain.mode) : ''}
+      ${renderContactCard(org)}
+    </div>
+
+    ${org.notes ? `
+    <div class="data-section">
+      <div class="data-section-title">对接记录</div>
+      <div style="font-size:13px; color:var(--text); line-height:1.8; white-space:pre-line;">${escH(org.notes)}</div>
+    </div>` : ''}
+  `;
+  document.getElementById('resultContent').innerHTML = html;
+  wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function buildChain(org){
+  const chain = { leader:[], upperChain:[], role:[], mode:[] };
+
+  // 找盟主
+  if(org.leader){
+    const leaders = DB.orgs.filter(o => o.orgName===org.leader || o.orgId===org.leader);
+    chain.leader = leaders.length ? leaders : [{orgName: org.leader, orgId:'', orgType:'盟主'}];
+  }
+
+  // ── 多级上级链路（上1级→上2级→上3级...） ──
+  const upperChain = []; // [{level, org}]
+  const visited = new Set([org.orgId, org.orgName].filter(Boolean));
+  let current = org;
+  let level = 1;
+  while(level <= 6){ // 最多6级
+    let parent = null;
+
+    if(current.agent1){
+      // ✅ 正常路径：用 agent1（联盟关系表的上级机构名称/编号）
+      const matches = DB.orgs.filter(o =>
+        !visited.has(o.orgId) && !visited.has(o.orgName) &&
+        (o.orgName === current.agent1 || o.orgId === current.agent1)
+      );
+      if(matches.length > 0){
+        parent = matches[0];
+      } else {
+        // 找不到对应记录，占位显示，不再继续往上
+        parent = { orgName: current.agent1, orgId: '', orgType: '', agent1:'', leader:'', leaderNo:'', allianceMode:'' };
+      }
+    } else if(level === 1 && (current.leader || current.leaderNo)){
+      // ✅ 后备路径：仅当被查询机构本身 agent1 为空时，才用服务商管理表的归属联盟
+      //    level===1 保证只触发一次，不会在后续链路中继续用 leader/leaderNo 递归
+      const fallbackKey = current.leader || current.leaderNo;
+      const matches = DB.orgs.filter(o =>
+        !visited.has(o.orgId) && !visited.has(o.orgName) &&
+        (o.orgName === fallbackKey || o.orgId === fallbackKey)
+      );
+      if(matches.length > 0){
+        parent = matches[0];
+      } else {
+        // 占位显示归属联盟
+        parent = { orgName: current.leader || '', orgId: current.leaderNo || '', orgType: '归属联盟', agent1:'', leader:'', leaderNo:'', allianceMode:'' };
+      }
+    }
+
+    if(!parent) break;
+    upperChain.push({ level, org: parent });
+    visited.add(parent.orgId);
+    visited.add(parent.orgName);
+    current = parent;
+    level++;
+  }
+  chain.upperChain = upperChain;
+
+  // 联盟角色：显示查询机构本身的联盟角色
+  if(org.allianceRole){
+    chain.role = [{orgName: org.allianceRole, orgId:'', orgType:''}];
+  }
+
+  // 联盟模式：显示查询机构本身的联盟模式简称
+  if(org.allianceMode){
+    chain.mode = [{orgName: org.allianceMode, orgId:'', orgType:''}];
+  }
+
+  return chain;
+}
+
+// 渲染多级上级链路
+function renderUpperChain(chain){
+  const levels = chain.upperChain;
+  if(!levels || levels.length === 0) return '';
+  let html = '';
+  levels.forEach(({level, org}) => {
+    const label = level === 1 ? '上级机构' : `上${numToChinese(level)}级`;
+    html += renderChainCard('c-upper', 'dot-upper', label, [org]);
+  });
+  return html;
+}
+
+function numToChinese(n){
+  const map = ['','一','二','三','四','五','六','七','八','九','十'];
+  return map[n] || n;
+}
+
+function renderChainCard(cls, dotCls, title, items){
+  const rows = items.length ? items.map(o=>`
+    <div class="chain-org-item">
+      <div class="chain-org-name">
+        <a onclick="jumpTo('${escH(o.orgId||o.orgName)}')">${escH(o.orgName)||'—'}</a>
+        ${o.allianceMode ? `<span class="badge badge-mode" style="margin-left:6px;font-size:10px;">${escH(o.allianceMode)}</span>` : ''}
+      </div>
+      <div class="chain-org-meta">
+        ${o.orgId?`<span class="chain-org-no">${escH(o.orgId)}</span>`:''}
+        ${o.orgType?`<span class="chain-org-type">${escH(o.orgType)}</span>`:''}
+      </div>
+    </div>
+  `).join('') : `<div class="chain-empty">暂无</div>`;
+
+  return `
+    <div class="chain-card ${cls}">
+      <div class="chain-card-title">
+        <span class="chain-dot ${dotCls}"></span>${title}
+        <span style="margin-left:auto;font-size:11px;font-weight:400;">${items.length?items.length+'个':''}</span>
+      </div>
+      ${rows}
+    </div>`;
+}
+
+function renderContactCard(org){
+  const hasAny = org.loginPhone || org.contactPhone || org.contactEmail;
+  if(!hasAny) return `
+    <div class="chain-card c-contact">
+      <div class="chain-card-title"><span class="chain-dot dot-contact"></span>联系方式</div>
+      <div class="chain-empty">暂无</div>
+    </div>`;
+  return `
+    <div class="chain-card c-contact">
+      <div class="chain-card-title"><span class="chain-dot dot-contact"></span>联系方式</div>
+      ${org.loginPhone ? `<div class="contact-row"><span class="contact-label">📱 登录手机</span><span class="contact-value">${escH(org.loginPhone)}</span></div>` : ''}
+      ${org.contactPhone ? `<div class="contact-row"><span class="contact-label">📞 业务联系人手机</span><span class="contact-value">${escH(org.contactPhone)}</span></div>` : ''}
+      ${org.contactEmail ? `<div class="contact-row"><span class="contact-label">📧 联系人邮箱</span><span class="contact-value">${escH(org.contactEmail)}</span></div>` : ''}
+    </div>`;
+}
+
+function typeBadgeClass(t){
+  const m = {'盟主':'badge-leader','一级代理':'badge-agent1','平行机构':'badge-parallel','自投机构':'badge-self','普通盟友':'badge-ally'};
+  return m[t]||'badge-ally';
+}
+
+function jumpTo(idOrName){
+  const org = DB.orgs.find(o => o.orgId===idOrName || o.orgName===idOrName);
+  if(!org){ showToast('未找到该机构详情', ''); return; }
+  document.getElementById('nameInput').value = org.orgName;
+  document.getElementById('noInput').value = org.orgId||'';
+  showResult(org);
+  hideCandidates();
+}
+
+// ════════════════════════════════════════
+// 工具函数
+// ════════════════════════════════════════
+function escH(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// Excel序列号转日期字符串（YYYY-MM-DD）
+function formatJoinDate(raw){
+  if(!raw) return '';
+  const s = String(raw).trim();
+  // 纯数字 → Excel序列号
+  if(/^\d+$/.test(s)){
+    const serial = parseInt(s, 10);
+    // Excel bug: 1900 treated as leap year, so dates before 1900-03-01 need adjustment
+    const msPerDay = 86400000;
+    const excelEpoch = new Date(1899, 11, 30); // Excel day 0 = 1899-12-30（实际偏移）
+    const d = new Date(excelEpoch.getTime() + serial * msPerDay);
+    if(isNaN(d.getTime())) return s;
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const d2 = String(d.getDate()).padStart(2,'0');
+    return y+'-'+m+'-'+d2;
+  }
+  // 已是字符串日期，尝试提取年月日
+  const m = s.match(/(\d{4})[^\d]?(\d{1,2})[^\d]?(\d{1,2})/);
+  if(m) return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+  return s;
+}
+
+function clearInput(id){ document.getElementById(id).value=''; onSearch(); }
+
+function resetAll(){
+  document.getElementById('nameInput').value='';
+  document.getElementById('noInput').value='';
+  hideCandidates();
+  hideResult();
+  const es = document.getElementById('emptyState');
+  if(es) es.style.display='';
+}
+
+function showToast(msg, type){
+  const t = document.getElementById('toast');
+  if(type === 'diag'){
+    t.innerHTML = msg;
+    t.className = 'show diag';
+    clearTimeout(t._timer);
+    t._timer = setTimeout(()=>{ t.classList.remove('show'); }, 8000);
+  } else {
+    t.textContent = msg;
+    t.className = 'show' + (type?' '+type:'');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(()=>{ t.classList.remove('show'); }, 3000);
+  }
+}
+
+// ═══ 数据诊断 ═══
+function showDataDiag(){
+  if(DB.orgs.length === 0){
+    showToast('当前 DB.orgs 为空，没有任何已加载数据。请重新上传文件。', 'error');
+    return;
+  }
+  // 统计
+  const hasId = DB.orgs.filter(o => o.orgId).length;
+  const hasName = DB.orgs.filter(o => o.orgName).length;
+  let html = `<div style="padding:14px;font-size:13px;line-height:2;color:#334155;">`;
+  html += `<div style="font-weight:700;font-size:14px;margin-bottom:8px;">📊 数据诊断</div>`;
+  html += `<div>共 <b>${DB.orgs.length}</b> 条机构数据</div>`;
+  html += `<div>有机构号：<b>${hasId}</b> 条 | 有机构名称：<b>${hasName}</b> 条</div>`;
+  // 机构号前缀分布
+  let d8=0, d9=0, d3=0, dOther=0;
+  DB.orgs.forEach(o => {
+    const v = String(o.orgId||'').trim();
+    if(!v) return;
+    if(v.startsWith('8')) d8++;
+    else if(v.startsWith('9')) d9++;
+    else if(v.startsWith('3')) d3++;
+    else dOther++;
+  });
+  html += `<div style="margin-top:4px;">机构号前缀分布：<span style="color:#16a34a;">8开头 ${d8}</span> · <span style="color:#16a34a;">9开头 ${d9}</span> · <span style="color:${d3>0?'#ef4444':'#64748b'};">3开头 ${d3}</span> · 其他 ${dOther}</div>`;
+  if(d3 > d8 + d9 && d3 > 0){
+    html += `<div style="color:#ef4444;font-weight:600;margin-top:4px;">⚠️ 3开头的机构号占比过高，可能匹配到了联盟编号而非机构号！建议重新上传文件查看匹配诊断。</div>`;
+  }
+  // 统计字段覆盖率
+  const fields = ['orgType','leader','agent1','manager','signBU','developer','assistant','loginPhone','contactPhone','contactEmail','allianceMode','allianceRole','joinDate','notes'];
+  html += `<div style="margin-top:6px;color:#64748b;">`;
+  fields.forEach(f => {
+    const cnt = DB.orgs.filter(o => o[f]).length;
+    const pct = Math.round(cnt / DB.orgs.length * 100);
+    html += `${f}：<b style="color:${pct>50?'#16a34a':'#ef4444'}">${cnt}条(${pct}%)</b> &nbsp; `;
+  });
+  html += `</div>`;
+  // 显示前10条数据
+  html += `<div style="margin-top:10px;font-weight:600;">前 10 条数据预览：</div>`;
+  html += `<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:4px;">`;
+  html += `<tr style="background:#f1f5f9;"><th style="padding:4px 6px;text-align:left;">机构号</th><th style="padding:4px 6px;text-align:left;">机构名称</th><th style="padding:4px 6px;text-align:left;">类型</th><th style="padding:4px 6px;text-align:left;">上级</th><th style="padding:4px 6px;text-align:left;">经理</th><th style="padding:4px 6px;text-align:left;">入网时间</th></tr>`;
+  DB.orgs.slice(0, 10).forEach(o => {
+    html += `<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:4px 6px;">${escH(o.orgId)||'<span style="color:#ef4444;">空</span>'}</td><td style="padding:4px 6px;">${escH(o.orgName)||'<span style="color:#ef4444;">空</span>'}</td><td style="padding:4px 6px;">${escH(o.orgType)||'—'}</td><td style="padding:4px 6px;">${escH(o.agent1)||'—'}</td><td style="padding:4px 6px;">${escH(o.manager)||'—'}</td><td style="padding:4px 6px;">${escH(formatJoinDate(o.joinDate))||'—'}</td></tr>`;
+  });
+  html += `</table></div>`;
+  showToast(html, 'diag');
+}
+
+function clearAllData(){
+  if(DB.orgs.length === 0){
+    showToast('当前没有数据可清空', '');
+    return;
+  }
+  if(!confirm('确定清空所有已加载数据？此操作不可恢复。')) return;
+  // 1. 先清空内存
+  DB = { orgs:[], contacts:[], records:[] };
+  fileRecords = [];
+  // 2. 清空 localStorage
+  try { localStorage.removeItem('orgDB'); } catch(e){}
+  try { localStorage.removeItem('orgDB_updateTime'); } catch(e){}
+  // 3. 直接删除整个 IndexedDB 数据库（最彻底）
+  try { indexedDB.deleteDatabase('OrgDB'); } catch(e){}
+  // 4. 隐藏更新时间显示
+  const el = document.getElementById('updateTime');
+  if(el) el.style.display = 'none';
+  // 5. 立即更新界面（不等异步）
+  updateUI();
+  resetAll();
+  showToast('✅ 数据已全部清空！', 'success');
+}
+
+// ════════════════════════════════════════
+// 本地持久化
+// ════════════════════════════════════════
+function saveToLocalStorage(){
+  // 先尝试 localStorage（小数据量快速）
+  try {
+    localStorage.setItem('orgDB', JSON.stringify({ orgs: DB.orgs, fileRecords }));
+    return;
+  } catch(e){ /* 超限，改用 IndexedDB */ }
+  // IndexedDB 备选（无大小限制）
+  try {
+    const req = indexedDB.open('OrgDB', 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains('data')) db.createObjectStore('data');
+    };
+    req.onsuccess = e => {
+      const db = e.target.result;
+      const tx = db.transaction('data','readwrite');
+      tx.objectStore('data').put({ orgs: DB.orgs, fileRecords }, 'main');
+    };
+    req.onerror = () => { /* 忽略 */ };
+  } catch(e2){ console.warn('IndexedDB存储也失败', e2); }
+}
+
+function loadFromLocalStorage(){
+  // 先读 localStorage
+  try {
+    const raw = localStorage.getItem('orgDB');
+    if(raw){
+      const data = JSON.parse(raw);
+      DB.orgs = data.orgs || [];
+      fileRecords = data.fileRecords || [];
+      updateUI();
+      loadUpdateTime();
+      if(DB.orgs.length > 0){
+        showToast(`📂 已恢复上次数据，共 ${DB.orgs.length} 个机构`, 'success');
+      }
+      return;
+    }
+  } catch(e){ /* 可能数据损坏 */ }
+  // localStorage 没有，尝试 IndexedDB
+  try {
+    const req = indexedDB.open('OrgDB', 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains('data')) db.createObjectStore('data');
+    };
+    req.onsuccess = e => {
+      const db = e.target.result;
+      const tx = db.transaction('data','readonly');
+      const get = tx.objectStore('data').get('main');
+      get.onsuccess = () => {
+        if(get.result){
+          DB.orgs = get.result.orgs || [];
+          fileRecords = get.result.fileRecords || [];
+          updateUI();
+          loadUpdateTime();
+          if(DB.orgs.length > 0){
+            showToast(`📂 已恢复上次数据，共 ${DB.orgs.length} 个机构`, 'success');
+          }
+        }
+      };
+    };
+    req.onerror = () => { /* 数据库不存在或已被删除，忽略 */ };
+  } catch(e){ console.warn('IndexedDB读取失败', e); }
+}
+
+// ════════════════════════════════════════
+// 导出去重数据
+// ════════════════════════════════════════
+function exportData(){
+  const rows = [['机构号','机构名称','机构类型','盟主','上级','招商经理','签约BU','发展人','招商助理','登录手机','联系人手机','联系人邮箱','联盟模式简称','对接记录']];
+  DB.orgs.forEach(o=>{
+    rows.push([o.orgId,o.orgName,o.orgType,o.leader,o.agent1,o.manager,o.signBU,o.developer,o.assistant,o.loginPhone,o.contactPhone,o.contactEmail,o.allianceMode,o.notes]);
+  });
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, '机构数据');
+  XLSX.writeFile(wb, '机构数据_去重导出_'+new Date().toLocaleDateString('zh-CN').replace(/\//g,'')+'.xlsx');
+}
+
+// ════════════════════════════════════════
+// 下载模板
+// ════════════════════════════════════════
+function downloadTemplate(){
+  const headers = ['机构号','机构名称','机构类型','盟主','一级代理','招商经理','联系方式','对接记录'];
+  const example = [
+    ['A001','陕西荣欣智联科技有限公司','盟主','','','张三','13800000001','2025-01初次对接'],
+    ['A002','西安某某信息技术有限公司','一级代理','陕西荣欣智联科技有限公司','','李四','13900000002',''],
+    ['A003','北京示例科技有限公司','平行机构','陕西荣欣智联科技有限公司','西安某某信息技术有限公司','王五','13700000003',''],
+    ['A004','广州自投机构示例','自投机构','陕西荣欣智联科技有限公司','','赵六','13600000004',''],
+    ['A005','深圳普通盟友示例','普通盟友','陕西荣欣智联科技有限公司','','孙七','13500000005',''],
+  ];
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers,...example]);
+  ws['!cols'] = headers.map(()=>({wch:22}));
+  XLSX.utils.book_append_sheet(wb, ws, '机构数据');
+  XLSX.writeFile(wb, '机构关系数据模板.xlsx');
+  showToast('模板下载成功', 'success');
+}
+
+// ════════════════════════════════════════
+// 加载演示数据
+// ════════════════════════════════════════
+function loadDemo(){
+  const demoOrgs = [
+    {orgId:'A001',orgName:'陕西荣欣智联科技有限公司',orgType:'盟主',leader:'',agent1:'',manager:'张磊',phone:'13812340001',notes:'2025年1月签约，核心合作伙伴'},
+    {orgId:'A002',orgName:'陕西荣欣数据服务有限公司',orgType:'平行机构',leader:'陕西荣欣智联科技有限公司',agent1:'',manager:'张磊',phone:'13812340001',notes:'荣欣旗下平行机构'},
+    {orgId:'A003',orgName:'荣欣（西安）金融科技有限公司',orgType:'自投机构',leader:'陕西荣欣智联科技有限公司',agent1:'',manager:'刘洋',phone:'13812340002',notes:'自投，直营'},
+    {orgId:'B001',orgName:'西安领航信息技术有限公司',orgType:'一级代理',leader:'陕西荣欣智联科技有限公司',agent1:'',manager:'李红',phone:'13923450001',notes:'一代，稳定'},
+    {orgId:'B002',orgName:'西安汇通支付服务有限公司',orgType:'一级代理',leader:'陕西荣欣智联科技有限公司',agent1:'',manager:'赵宇',phone:'13923450002',notes:''},
+    {orgId:'C001',orgName:'渭南盛达网络科技有限公司',orgType:'普通盟友',leader:'陕西荣欣智联科技有限公司',agent1:'西安领航信息技术有限公司',manager:'王峰',phone:'13734560001',notes:''},
+    {orgId:'C002',orgName:'咸阳云通商务有限公司',orgType:'普通盟友',leader:'陕西荣欣智联科技有限公司',agent1:'西安领航信息技术有限公司',manager:'陈静',phone:'13734560002',notes:'2025年3月接入'},
+    {orgId:'D001',orgName:'北京联盛科技有限公司',orgType:'盟主',leader:'',agent1:'',manager:'周明',phone:'13611110001',notes:'华北区域盟主'},
+    {orgId:'D002',orgName:'天津联盛数字有限公司',orgType:'平行机构',leader:'北京联盛科技有限公司',agent1:'',manager:'周明',phone:'13611110001',notes:''},
+    {orgId:'E001',orgName:'上海瑞云支付科技有限公司',orgType:'盟主',leader:'',agent1:'',manager:'林雪',phone:'13521230001',notes:'华东盟主，重点维护'},
+    {orgId:'E002',orgName:'杭州云付信息技术有限公司',orgType:'一级代理',leader:'上海瑞云支付科技有限公司',agent1:'',manager:'钱伟',phone:'13521230002',notes:''},
+    {orgId:'E003',orgName:'南京瑞通科技有限公司',orgType:'普通盟友',leader:'上海瑞云支付科技有限公司',agent1:'杭州云付信息技术有限公司',manager:'孙力',phone:'13521230003',notes:''},
+    {orgId:'F001',orgName:'广州领先支付服务有限公司',orgType:'自投机构',leader:'陕西荣欣智联科技有限公司',agent1:'',manager:'张磊',phone:'13812340001',notes:'全国自投布局'},
+  ];
+  const { orgs, newCount } = mergeOrgs(DB.orgs, demoOrgs);
+  DB.orgs = orgs;
+  fileRecords.push({ name:'【演示数据】', total: demoOrgs.length, newCount, updateCount:0, time: new Date().toLocaleString() });
+  updateUI();
+  saveToLocalStorage();
+  showToast(`演示数据加载成功，共 ${demoOrgs.length} 个机构`, 'success');
+}
+
+// ════════════════════════════════════════
+// 初始化
+// ════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', ()=>{
+  loadFromLocalStorage();
+  loadRecFromLocalStorage();
+  if(DB.orgs.length > 0){
+    updateUI();
+  }
+  if(REC_DB.records.length > 0){
+    updateRecUI();
+  }
+  syncTopbarByTab();
+});
+
+
+// ════════════════════════════════════════
+// 调价记录查询 模块
+// ════════════════════════════════════════
+
+// 调价记录字段映射（基于「调价需求提报规则模板」真实列名）
+// 每个 value 数组里包含同义列名，匹配到的列会被标准化为 key
+const REC_FIELD_MAP = {
+  applyTime:    ['申请时间'],
+  applicant:    ['自投方', '申请方'],
+  adjustType:   ['调价类别'],
+  orgId:        ['分润机构号', '机构号'],          // 调价机构
+  orgName:      ['分润机构名称', '机构名称'],
+  policyName:   ['调价政策'],
+  tradeType:    ['调价交易类型'],
+  adjustRule:   ['调价规则'],
+  autoDays:     ['自动调价天数'],
+  profitRule:   ['调价分成规则'],
+  profitRate:   ['(1)调价机构分润率'],
+  settleMode:   ['(1)结算模式'],
+  // 收益方 1
+  b1OrgId:      ['(2)收益方号', '收益方号'],
+  b1OrgName:    ['(2)收益方名称', '收益方名称'],
+  b1Rate:       ['(2)收益方分润率', '收益方分润率'],
+  // 收益方 2
+  b2OrgId:      ['(3)收益方号'],
+  b2OrgName:    ['(3)收益方名称'],
+  b2Rate:       ['(3)收益方分润率'],
+};
+
+// 触发调价记录文件上传
+function triggerRecUpload(){
+  document.getElementById('recFileInput').click();
+}
+
+// 调价记录文件读取
+async function handleRecFiles(event){
+  const files = Array.from(event.target.files || []);
+  if(files.length === 0) return;
+  showToast(`正在解析 ${files.length} 个文件...`, 'info');
+
+  try {
+    for(const file of files){
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, {type:'array'});
+      // 仅取主表（第一个 sheet，名为 Sheet1），避免把"特殊指定商户orSN"表里的注释行混入
+      const mainSheet = wb.SheetNames[0];
+      const ws = wb.Sheets[mainSheet];
+      const rawRows = XLSX.utils.sheet_to_json(ws, {defval:''});
+
+      // 字段标准化：把真实列名映射到内部 key
+      const normalized = rawRows.map(r => normalizeRecRow(r, file.name));
+      // 过滤空行（机构号/机构名称都为空）
+      const valid = normalized.filter(r => r.orgId || r.orgName);
+      REC_DB.records.push(...valid);
+      if(!REC_DB.fileNames.includes(file.name)) REC_DB.fileNames.push(file.name);
+    }
+    REC_DB.updateTime = formatNow();
+    saveRecToLocalStorage();
+    updateRecUI();
+    showToast(`调价记录加载成功，共 ${REC_DB.records.length} 条记录`, 'success');
+  } catch(err){
+    console.error(err);
+    showToast('调价记录文件解析失败：' + err.message, 'error');
+  } finally {
+    event.target.value = '';
+  }
+}
+
+// 单行标准化
+function normalizeRecRow(raw, fileName){
+  const out = { _file: fileName };
+  for(const k in raw){
+    const key = String(k).trim();
+    const val = raw[k];
+    // 找匹配的标准 key
+    for(const stdKey in REC_FIELD_MAP){
+      if(REC_FIELD_MAP[stdKey].includes(key)){
+        out[stdKey] = val;
+        break;
+      }
+    }
+  }
+  return out;
+}
+
+// 调价记录本地存储
+function saveRecToLocalStorage(){
+  try {
+    localStorage.setItem('rec_db', JSON.stringify(REC_DB));
+  } catch(e){ console.warn('调价记录保存失败', e); }
+}
+function loadRecFromLocalStorage(){
+  try {
+    const raw = localStorage.getItem('rec_db');
+    if(raw){ Object.assign(REC_DB, JSON.parse(raw)); }
+  } catch(e){ console.warn('调价记录加载失败', e); }
+}
+
+function updateRecUI(){
+  const cnt = REC_DB.records.length;
+  document.getElementById('recDataCount').textContent = cnt > 0
+    ? `已加载 ${cnt} 条调价记录（${REC_DB.fileNames.length} 个文件）`
+    : '暂无调价记录';
+  document.getElementById('recClearBtn').style.display = cnt > 0 ? 'inline-flex' : 'none';
+  if(REC_DB.updateTime){
+    document.getElementById('recUpdateTime').style.display = 'inline';
+    document.getElementById('recUpdateTimeVal').textContent = REC_DB.updateTime;
+  }
+  // 空状态 / 结果区
+  document.getElementById('recEmptyState').style.display = cnt > 0 ? 'none' : 'block';
+  document.getElementById('recResultWrap').style.display = 'none';
+}
+
+function clearRecData(){
+  if(!confirm('确认清空所有调价记录？此操作不可恢复')) return;
+  REC_DB = { records: [], fileNames: [], updateTime: '' };
+  localStorage.removeItem('rec_db');
+  updateRecUI();
+  showToast('调价记录已清空', 'success');
+}
+
+function onRecKeydown(e){ if(e.key === 'Enter') doRecSearch(); }
+
+function resetRec(){
+  const inp = document.getElementById('recOrgNoInput');
+  if(inp) inp.value = '';
+  document.getElementById('recResultWrap').style.display = 'none';
+  document.getElementById('recEmptyState').style.display = REC_DB.records.length > 0 ? 'none' : 'block';
+}
+
+// 调价记录搜索：按机构号匹配 分润机构号 / (2)收益方号 / (3)收益方号
+function doRecSearch(){
+  const orgNoQ = (document.getElementById('recOrgNoInput').value || '').trim();
+
+  if(REC_DB.records.length === 0){
+    showToast('请先上传调价记录', 'warn');
+    return;
+  }
+  if(!orgNoQ){
+    showToast('请输入机构号', 'warn');
+    return;
+  }
+
+  // 规范化：去空格、去前导 0（机构号常被存为数字）、同时保留原始
+  const qTrim = orgNoQ.replace(/\s+/g, '');
+
+  const hits = REC_DB.records.filter(r => {
+    const ids = [
+      r.orgId, r.b1OrgId, r.b2OrgId
+    ].map(v => String(v ?? '').trim());
+    return ids.some(id => id && (id === qTrim || id === String(Number(qTrim)) || id.includes(qTrim)));
+  });
+
+  renderRecResults(hits, orgNoQ);
+}
+
+function renderRecResults(hits, orgNoQ){
+  const wrap = document.getElementById('recResultWrap');
+  const content = document.getElementById('recResultContent');
+  document.getElementById('recEmptyState').style.display = 'none';
+
+  if(hits.length === 0){
+    content.innerHTML = `
+      <div class="search-card" style="text-align:center;padding:40px 20px;">
+        <div style="font-size:40px;">😶</div>
+        <div style="font-weight:700;margin-top:8px;">未找到机构号 <b style="color:var(--primary);">${escH(orgNoQ)}</b> 的调价记录</div>
+        <div style="color:var(--text-muted);font-size:12px;margin-top:6px;">
+          匹配范围：分润机构号 / (2)收益方号 / (3)收益方号
+        </div>
+      </div>`;
+    wrap.style.display = 'block';
+    return;
+  }
+
+  // ===== 重复申请识别 =====
+  // 重复 key：分润机构号 + 公司名称（orgName）+ 政策名称（policyName）三者拼接
+  const dupKey = r => `${r.orgId||''}||${r.orgName||''}||${r.policyName||''}`;
+  const dupCnt = new Map();
+  hits.forEach(r => { const k = dupKey(r); dupCnt.set(k, (dupCnt.get(k)||0) + 1); });
+  const hitsWithDup = hits.map(r => ({
+    r, isDup: (dupCnt.get(dupKey(r)) || 0) > 1
+  }));
+
+  // 排序：重复组（按时间倒序）→ 非重复组（按时间倒序）
+  hitsWithDup.sort((a,b) => {
+    if(a.isDup !== b.isDup) return a.isDup ? -1 : 1;
+    const ta = toDateVal(a.r.applyTime), tb = toDateVal(b.r.applyTime);
+    return tb - ta;
+  });
+
+  const dups = hitsWithDup.filter(x => x.isDup).length;
+  const cards = hitsWithDup.map((item, i) =>
+    renderRecCard(item.r, i, orgNoQ, item.isDup, dupCnt.get(dupKey(item.r)))
+  ).join('');
+
+  content.innerHTML = `
+    <div class="search-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+        <div style="font-weight:700;font-size:14px;">
+          ✅ 机构号 <b style="color:var(--primary);">${escH(orgNoQ)}</b> 共 <b style="color:var(--primary);">${hits.length}</b> 条调价记录
+          ${dups > 0 ? `<span style="display:inline-block;margin-left:8px;padding:2px 8px;background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;color:#b91c1c;font-size:11px;font-weight:700;">⚠️ 含 ${dups} 条疑似重复申请（已置顶）</span>` : ''}
+        </div>
+        <span style="color:var(--text-muted);font-size:12px;">按申请时间倒序 · 重复项优先</span>
+      </div>
+      <div class="rec-cards">${cards}</div>
+    </div>`;
+  wrap.style.display = 'block';
+}
+
+function renderRecCard(r, idx, q, isDup, dupCount){
+  // 命中标记
+  const hitBadge = (field, value) => {
+    if(value === undefined || value === null || value === '') return '';
+    const s = String(value).trim();
+    if(!s.includes(q)) return '';
+    return `<span class="rec-hit">命中</span>`;
+  };
+
+  // 重复角标
+  const dupBadge = isDup
+    ? `<span class="rec-dup-badge" title="按 [分润机构号 + 公司名称 + 政策名称] 分组，命中多于此条记录的视为重复申请">
+         ⚠️ 疑似重复申请（${dupCount} 次）
+       </span>`
+    : '';
+
+  // 格式化日期（Excel 序列号 / Date / 字符串 都能处理）
+  const fmtDate = v => {
+    if(v === '' || v === null || v === undefined) return '';
+    if(v instanceof Date) {
+      const p = n => String(n).padStart(2,'0');
+      return `${v.getFullYear()}-${p(v.getMonth()+1)}-${p(v.getDate())}`;
+    }
+    if(typeof v === 'number' && v > 25000 && v < 80000){
+      // Excel 序列号
+      const ms = (v - 25569) * 86400 * 1000;
+      const d = new Date(ms);
+      const p = n => String(n).padStart(2,'0');
+      return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+    }
+    return String(v);
+  };
+
+  // 角色识别：该机构号是「分润机构」还是「收益方」？
+  const roles = [];
+  if(String(r.orgId ?? '').includes(q)) roles.push('分润机构');
+  if(String(r.b1OrgId ?? '').includes(q)) roles.push('收益方②');
+  if(String(r.b2OrgId ?? '').includes(q)) roles.push('收益方③');
+  const roleText = roles.length ? roles.join(' · ') : '—';
+
+  // 收益方行
+  const beneficiaries = [];
+  if(r.b1OrgId || r.b1OrgName) beneficiaries.push({label:'收益方②', id:r.b1OrgId, name:r.b1OrgName, rate:r.b1Rate});
+  if(r.b2OrgId || r.b2OrgName) beneficiaries.push({label:'收益方③', id:r.b2OrgId, name:r.b2OrgName, rate:r.b2Rate});
+
+  return `
+    <div class="rec-card${isDup ? ' is-dup' : ''}">
+      ${dupBadge ? `<div class="rec-dup-banner">${dupBadge}</div>` : ''}
+      <div class="rec-card-head">
+        <div>
+          <div style="font-weight:700;font-size:14px;color:var(--text);">${escH(r.policyName || '—')}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">
+            <span class="rec-tag">${escH(r.tradeType || '调价')}</span>
+            <span class="rec-tag rec-tag-blue">${escH(r.adjustType || '—')}</span>
+            <span style="margin-left:6px;">📅 ${escH(fmtDate(r.applyTime))}</span>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11px;color:var(--text-muted);">命中角色</div>
+          <div style="font-weight:700;color:var(--primary);font-size:12px;margin-top:2px;">${escH(roleText)}</div>
+        </div>
+      </div>
+
+      <div class="rec-card-body">
+        <div class="rec-row">
+          <span class="rec-label">分润机构</span>
+          <span class="rec-value">${escH(r.orgId || '—')} <span style="color:var(--text-muted);">${escH(r.orgName || '')}</span></span>
+        </div>
+        <div class="rec-row">
+          <span class="rec-label">申请方</span>
+          <span class="rec-value">${escH(r.applicant || '—')}</span>
+        </div>
+        <div class="rec-row">
+          <span class="rec-label">调价规则</span>
+          <span class="rec-value">${escH(r.adjustRule || '—')}</span>
+        </div>
+        <div class="rec-row">
+          <span class="rec-label">分成规则</span>
+          <span class="rec-value">${escH(r.profitRule || '—')}</span>
+        </div>
+        ${r.autoDays ? `<div class="rec-row"><span class="rec-label">自动调价天数</span><span class="rec-value">${escH(r.autoDays)}</span></div>` : ''}
+        <div class="rec-row">
+          <span class="rec-label">分润率 / 结算</span>
+          <span class="rec-value">${escH(String(r.profitRate ?? '—'))} · ${escH(r.settleMode || '—')}</span>
+        </div>
+        ${beneficiaries.length ? `<div class="rec-row"><span class="rec-label">收益方</span><span class="rec-value">${
+          beneficiaries.map(b => `<div>${escH(b.label)}：${escH(b.id || '—')} <span style="color:var(--text-muted);">${escH(b.name || '')}</span> · ${escH(String(b.rate ?? '—'))}</div>`).join('')
+        }</span></div>` : ''}
+      </div>
+      <div class="rec-card-foot">来源：${escH(r._file || '—')}</div>
+    </div>
+  `;
+}
+
+// 把 Excel date / Date / 数字 转成毫秒值
+function toDateVal(v){
+  if(v === '' || v === null || v === undefined) return 0;
+  if(v instanceof Date) return v.getTime();
+  if(typeof v === 'number' && v > 25000 && v < 80000) return (v - 25569) * 86400 * 1000;
+  return 0;
+}
+
+function formatNow(){
+  const d = new Date();
+  const p = n => String(n).padStart(2,'0');
+  return `${p(d.getMonth()+1)}${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+</script>
+</body>
+</html>
